@@ -1,0 +1,486 @@
+---
+title: "ATP dataset analysis"
+author: "Anagha Kadoo"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warnings=FALSE, 
+                      fig.height = 6, fig.width = 8)
+```
+
+\newpage
+
+```{r}
+# Importing the required packages
+library(tidyverse)
+library(ggplot2)
+library(tidyr)
+library(readr)
+library(gridExtra)
+```
+
+# Part A #
+
+## Problem 1 ##
+
+I have always had a keen interest in tennis and closely followed the sport. Rafael Nadal has been my favorite player for a long time now. I wanted to dive deeper into player comparisons and gain insights about Nadal and other famous players in the world of tennis.
+
+Thus I decided to conduct an analysis using the ATP Tennis dataset spanning the years 2000 to 2024. 
+
+### Data Source ###
+
+[\textcolor{blue}{\underline{ATP Tennis Dataset}}](https://www.kaggle.com/datasets/dissfya/atp-tennis-2000-2023daily-pull)
+
+### Dataset Description ###
+
+This dataset consists of 60k+ data points for men's category tennis matches between the years 2000-2024. The regular updates (frequent pulls from the remote data sources) to this dataset provide a valuable opportunity to not only compare the performances of past and current players but also to gain insights into the emerging generation of tennis talent.
+
+The process for updating the dataset from the remote sources is described [\textcolor{blue}{\underline{here}}](https://www.kaggle.com/code/dissfya/atp-tennis-daily-pull).\
+
+```{r}
+
+file_path <- "./atp_tennis.csv"
+
+# Read the CSV file using read.csv
+data <- read.csv(file_path)
+
+summary(data)
+```
+As shown in the code above the dataset is first imported as a csv file.\
+
+```{r}
+
+cat("Total missing values = ", sum(is.na(data)))
+
+# Pre processing data
+data$Player_1 <- trimws(data$Player_1)
+data$Player_2 <- trimws(data$Player_2)
+data$Tournament_Winner <- ifelse(data$Round == "The Final", data$Winner, NA)
+data$Rank_1[data$Rank_1 == -1] <- NA
+data$Rank_1[data$Rank_2 == -1] <- NA
+
+# Drop the columns not used for visualization
+data <- subset(data, select = -c(Pts_1, Pts_2, Odd_1, Odd_2))
+
+```
+
+Following this data pre processing steps are performed creating a well defined dataset that can be used later for visualizations. For some matches in the dataset the player names for Player_1 and Player_2 were found to contain white spaces at the end. Thus by using the trimming function the white spaces have been removed to achieve consistency in data. Next the column Tournament_Winner has been added which based on whether the match is a 'Final' or not determines the Tournament Winner's name. We find that there are no missing values in the dataset, thus it needs no tidying.\
+
+Also from the aboves summary we see that some players have a rank of -1 which is not possible, thus we replace the values with NA and these can be omitted later in the analysis stage. Finally the columns not used for analysis are dropped to further optimize the final dataframe.\
+
+```{r}
+
+# Print the report for the dataset formed
+str(data)
+
+```
+
+### Variables description ###
+
+1. Tournament - Tournament name in which the match is played.
+
+2. Date - Date on which the match was played.
+
+3. Series - Tournament category. The tournament can belong to one of the following categories -
+
+- ATP250
+- ATP500
+- International
+- International Gold
+- Grand Slam
+- Masters
+- Masters 1000
+- Masters Cup
+
+4. Court - The type of the court on which the match was played. Can be either Indoor or Outdoor.
+
+5. Surface - The court surface type on which the match was played. Can have the following values -
+
+- Hard
+- Clay
+- Grass
+- Carpet
+
+6. Round - The round of the tournament that the match was. Can have values based on the number of players and matches to be played for each tournament.
+
+7. Best of - The maximum number of sets in the match.
+
+8. Player_1 - Name of the Player 1 in the match.
+
+9. Player_2 - Name of the Player 2 in the match.
+
+10. Winner - Winner of the match.
+
+11. Rank_1 - First player's rank.
+
+12. Rank_2 - Second player's rank.
+
+13. Score - The match score.
+
+14. Tournament_Winner - The player name of winner of the match is set as the column value if it was the final round of the tournament. Or else set to NA.
+
+## Problem 2 ##
+
+All visualizations are created for the dataset in the date range 01/2000 to 01/2024.
+
+### Key Visualizations ###
+
+### Top 25 Tennis Players with Most Wins ###
+
+Firstly we will calculate the number of wins for each player. The following code calculates the wins per player. We can also calculate the statistics for the wins calculated.\
+
+```{r}
+
+all_players <- c(data$Player_1, data$Player_2)
+
+# Count the number of wins for each player
+player_wins <- table(data$Winner)
+
+# Convert the result to a data frame
+player_wins_df <- data.frame(Player = names(player_wins), 
+                             Wins = as.numeric(player_wins))
+
+# Order the players based on their wins
+player_wins_df <- player_wins_df[order(player_wins_df$Wins, 
+                                       decreasing = TRUE), ]
+
+print(summary(player_wins_df))
+```
+
+As we can see the mean number of wins for the dataset are 55 wins and the median is 9 wins. Now we will go on to plot the top 25 tennis players based on the number of wins.\
+
+```{r}
+top25_players <- head(player_wins_df, 25)
+
+ggplot(top25_players, aes(x = Wins, y = reorder(Player, Wins))) +
+  geom_bar(stat = "identity", fill = "#3949AB") +
+  geom_text(aes(label = Wins), hjust = -0.1, 
+            vjust = 0.4, size = 2, color = "black") +
+  labs(title = "Top 25 Tennis Players with Most Wins (01/2000 to 01/2024)",
+       x = "Wins",
+       y = "Player") +
+  theme(axis.text.y = element_text(size = 8))
+
+```
+The graph shows that Roger Federer has the most number of wins with a whooping 1151 wins in total. Whereas Nadal and Djokovic have the same number of wins equal to 998. However we see a great fall in the number of wins with Ferrer on fourth with 677 wins. This plot indeed validates the nickname 'Big Three' given to the trio of Novak Djokovic, Roger Federer and Rafael Nadal, each considered to be among the greatest players of all time in tennis.
+
+\newpage
+
+### Top 25 Tennis Players with Highest Win Ratio ###
+
+Next we calculate the win ratio for each player. For this first we need to evaluate the total number of matches played by each player. Using this calculated total matches played value we can find the win ratio for each player using the total wins as calculate previously.\
+
+```{r}
+all_players <- c(data$Player_1, data$Player_2)
+
+# Count the number of matches played for each player
+matches_played <- table(all_players)
+
+# Count the number of wins for each player
+player_wins <- table(data$Winner)
+
+common_players <- intersect(names(matches_played), names(player_wins))
+
+# Create a data frame for player win ratio
+player_ratio_df <- data.frame(
+  Player = common_players,
+  Matches_Played = as.numeric(matches_played[common_players]),
+  Wins = as.numeric(player_wins[common_players]),
+  Win_Ratio = as.numeric(player_wins[common_players]) / 
+    as.numeric(matches_played[common_players])
+)
+
+# Order the players based on their win ratio
+player_ratio_df <- player_ratio_df[order(player_ratio_df$Win_Ratio, 
+                                         decreasing = TRUE), ]
+
+# Print the data frame for player win ratio
+print(summary(player_ratio_df))
+```
+
+The summary of the calculated values shows a mean win ratio of 0.3814 and a median value of 0.3732 for the win ratio. Using this calculated median value we can plot the top 25 players with the highest win ratios.\
+
+```{r}
+
+median_wins <- median(player_ratio_df$Wins)
+
+# Filter players with wins greater than or equal to the median
+filtered_players <- player_ratio_df[player_ratio_df$Wins >= median_wins, ]
+
+# Select the top 25 players based on win ratio
+top25_players <- head(filtered_players, 25)
+
+ggplot(top25_players, aes(x = Win_Ratio, y = reorder(Player, Win_Ratio))) +
+  geom_bar(stat = "identity", fill = "#3949AB") +
+  geom_text(aes(label = sprintf("%.2f", Win_Ratio)), 
+            hjust = -0.1, vjust = 0.4, size = 2, color = "black") +
+  labs(
+    title = "Top 25 Tennis Players with Highest Win Ratio (01/2000 to 01/2024)",
+       x = "Win Ratio",
+       y = "Player") +
+  theme(axis.text.y = element_text(size = 8))
+```
+
+Here we observe an unexpected result that even though the overall number of wins is highest for Federer, the win ratio is highest for Djokovic followed by Nadal. Also even though the number of wins for the 'Big Three' is quite high than the other players, the win ratio appears to be comparable between the top three and the rest of the players.
+
+\newpage
+
+### Top 25 Tennis Players with Most Tournament Wins ###
+
+First I have plotted the highest number of tournament wins for the top 25 players. Here we can use the column we pre processed while the data pre processing stage.\
+
+```{r}
+# Count the number of tournament wins for each player
+tournament_wins <- table(data$Tournament_Winner)
+
+# Convert to data frame
+tournament_wins_df <- data.frame(Player = names(tournament_wins), 
+                                 Wins = as.numeric(tournament_wins))
+
+# Order the players based on the number of tournament wins
+top_players <- tournament_wins_df[order(tournament_wins_df$Wins, 
+                                        decreasing = TRUE), ]
+
+# Select the top 25 players
+top25_players <- head(top_players, 25)
+
+# Plot the top 25 players with most tournament wins
+ggplot(top25_players, aes(x = Wins, y = reorder(Player, Wins))) +
+  geom_bar(stat = "identity", fill = "#3949AB") +
+  geom_text(aes(label = Wins), hjust = -0.1, vjust = 0.4, 
+            size = 2, color = "black") +
+  labs(
+  title = "Top 25 Tennis Players with Most Tournament Wins (01/2000 to 01/2024)"
+  ,x = "Tournament Wins", y = "Player") +
+  theme(axis.text.y = element_text(size = 8))
+```
+CLearly Federer is the undisputed leader her with the highest number of tournamnet wins followed by Djokovic and Nadal. I have also plotted the highest number of tournament winners by playing court surface type.\
+
+```{r}
+tournament_wins <- table(data$Tournament_Winner, data$Surface)
+
+# Convert to data frame
+tournament_wins_df <- as.data.frame.matrix(tournament_wins)
+tournament_wins_df$Player <- rownames(tournament_wins_df)
+
+# Reshape data for plotting
+tournament_wins_long <- gather(tournament_wins_df, key = "Surface", 
+                               value = "Wins", -Player)
+
+# Order the players based on the number of tournament wins
+top_players <- tournament_wins_long[order(tournament_wins_long$Wins, 
+                                          decreasing = TRUE), ]
+
+# Select the top 25 players for each surface
+top_players <- top_players %>% group_by(Surface) %>% top_n(25, Wins)
+
+# Plot the top tournament winners by surface
+plots <- top_players %>%
+  split(.$Surface) %>%
+  map(~ ggplot(.x, aes(x = reorder(Player, -Wins), 
+                       y = Wins, fill = "#3949AB")) +
+         geom_col() +
+         labs(title = paste("Top Tournament Winners -", unique(.x$Surface)),
+              x = "Player",
+              y = "Tournament Wins") +
+         theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+               legend.position = "none",
+               plot.title = element_text(hjust = 0.5),
+               strip.text = element_text(size = 10),
+               plot.background = element_blank(),
+               panel.grid.major.y = element_blank(),
+               panel.grid.minor.y = element_blank()) +
+        scale_fill_manual(values = rep("#3949AB", nrow(.x))))
+
+plot_size <- 10
+
+# Print the separate plots
+combined_plot <- invisible(grid.arrange(
+  plots[[1]], plots[[2]],
+  plots[[3]], plots[[4]],
+  ncol = 2,
+  widths = c(1, 1),
+  heights = c(1, 1)
+))
+
+```
+These graphs show that each of the big three has the highest number of tournament wins on atleast one type of surface. However Federer seems to have a high number of wins on three surfaces namely Carpet, Grass and Hard. Also Nadal is undoubtedly the best player on Clay as his number of tournament wins is the maximum.\
+
+Next we plot the Top tournament winners based on the series type.\
+
+```{r}
+# Count the number of tournament wins for each player and series
+tournament_wins <- table(data$Tournament_Winner, data$Series)
+
+# Convert to data frame
+tournament_wins_df <- as.data.frame.matrix(tournament_wins)
+tournament_wins_df$Player <- rownames(tournament_wins_df)
+
+# Reshape data for plotting
+tournament_wins_long <- gather(tournament_wins_df, 
+                               key = "Series", value = "Wins", -Player)
+
+tournament_wins_long <- tournament_wins_long[tournament_wins_long$Wins != 0, ]
+
+# Order the players based on the number of tournament wins
+top_players_series <- tournament_wins_long[order(tournament_wins_long$Wins, 
+                                                 decreasing = TRUE), ]
+
+# Select the top 10 players for each series
+top_players_series <- top_players_series %>% group_by(Series) %>% 
+  top_n(10, Wins)
+
+
+# Plot the top tournament winners by series
+plots_series <- top_players_series %>%
+  split(.$Series) %>%
+  map(~ ggplot(.x, aes(x = reorder(Player, -Wins), y = Wins, fill = Player)) +
+         geom_col() +
+         labs(title = paste("Top Tournament Winners -", unique(.x$Series)),
+              x = "Player",
+              y = "Tournament Wins") +
+         theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+               legend.position = "none",
+               plot.title = element_text(hjust = 0.5),
+               strip.text = element_text(size = 10),
+               plot.background = element_blank(),
+               panel.grid.major.y = element_blank(),
+               panel.grid.minor.y = element_blank()) +
+         scale_fill_manual(values = rep("#3949AB", nrow(.x))))
+
+# Adjust the size of each plot
+plot_width <- 10
+plot_height <- 6
+
+# Arrange the first four plots in a 2x2 grid
+combined_plots_series_1 <- invisible(grid.arrange(
+  plots_series[[1]], plots_series[[2]],
+  plots_series[[3]], plots_series[[4]],
+  ncol = 2,
+  nrow = 2,
+  widths = rep(unit(plot_width, "cm"), 2),
+  heights = rep(unit(plot_height, "cm"), 2)
+))
+
+combined_plots_series_2 <- invisible(grid.arrange(
+  plots_series[[5]], plots_series[[6]],
+  plots_series[[7]], plots_series[[8]],
+  ncol = 2,
+  nrow = 2,
+  widths = rep(unit(plot_width, "cm"), 2),
+  heights = rep(unit(plot_height, "cm"), 2)
+))
+
+```
+Here we see that Djokovic is the top winner when it comes to Grand Slams. Federer is the top winner in the Masters and International category.Even though Nadal is not the top player in any type he ranks second in the many of them.\
+
+The following two visualizations are the ones that seemed most interesting to me.
+
+\newpage
+
+### Percentage Wins Across Different Surfaces of Top 25 Players ###
+
+For this plot we first analyze the surface column for the winners of different matches. Also we evaluate the top 25 players according to maximum win numbers. Then we calculate the percentage for wins on each surface.\
+
+```{r}
+# Calculating the total number of wins for all players
+total_wins <- data %>%
+  group_by(Winner, Surface) %>%
+  summarise(TotalWins = n()) %>%
+  group_by(Winner) %>%
+  summarise(TotalWins = sum(TotalWins))
+
+# Selecting the top 25 players with maximum wins
+top_players <- total_wins %>%
+  top_n(25, TotalWins) %>%
+  arrange(desc(TotalWins))
+
+# Calculating the percentage of wins on each surface for each player
+player_surface_percentage <- data %>%
+  filter(Winner %in% top_players$Winner) %>%
+  group_by(Winner, Surface) %>%
+  summarise(WinsOnSurface = n()) %>%
+  left_join(top_players, by = "Winner") %>%
+  mutate(PercentageWin = (WinsOnSurface / TotalWins) * 100)
+
+custom_colors <- colorRampPalette(c("#D31A1A", "#623535", "darkgreen", 
+                                    "#2DB8D3"))(4)
+
+# Plotting Top 25 players with the percentage win for each surface
+ggplot(player_surface_percentage, aes(x = reorder(Winner, -TotalWins), 
+                                      y = PercentageWin, fill = Surface)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Percentage Wins Across Different 
+       Surfaces of Top 25 Players (01/2000 to 01/2024)",
+       x = "Player",
+       y = "Percentage of Wins",
+       fill = "Surface") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        plot.title = element_text(hjust = 0.5),
+        strip.text = element_text(size = 25),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank()) +
+  scale_fill_manual(values = custom_colors)
+```
+
+This plot clearly shows on what surface type each player performs the best. Federer has the highest number of wins ans high percent of that is on the Hard surface court. Djokovic has a similar trend to Federer and has high percent of Hard court wins. On the contrary Nadal's wins are more on the Clay court. In general the number of wins on Hard surface is high for all players. This can also be attributed to the fact that most tournaments held worldwide are on the hard surface. Clay is the next surface with a high win percent for all players showing a high number of matches played are on Clay.\
+
+\newpage
+
+### Grand Slams - Winner's Rank Over Years ###
+
+Grand Slams are the most prestigious tennis tournaments. These include the Australian Open, the French Open, the Wimbledon and the US Open. We can evaluate the rank of the winner for each years Grand Slam and plot the trend over the years. The following code first creates the rank data for all tournament winners for different years. The using the data for Grand Slams the plot is created.\
+
+```{r}
+# Filter the data to include only rows where the player won in the Final round
+final_winners_data <- data[data$Round == "The Final", ]
+
+# Extract the year from the 'Date' column
+final_winners_data$Year <- as.integer(format(
+  as.Date(final_winners_data$Date), "%Y"))
+
+# Create a dataframe with tournament name, year, and winner's rank
+tournament_winner_rank <- final_winners_data %>%
+  select(Tournament, Year, Winner, Player_1, Player_2, Rank_1, Rank_2) %>%
+  mutate(Winner_Rank = ifelse(Winner == Player_1, Rank_1, Rank_2))
+
+# Use na.omit() to remove rows with missing Winner_Rank
+tournament_winner_rank <- na.omit(tournament_winner_rank)
+
+# Filter the data for Grand Slam tournaments
+grand_slams_data <- tournament_winner_rank[
+  tournament_winner_rank$Tournament %in% 
+    c("Australian Open", "French Open", "Wimbledon", "US Open"), ]
+
+custom_colors <- colorRampPalette(c("Australian Open" = "#D31A1A",
+                   "French Open" = "#623535",
+                   "Wimbledon" = "darkgreen",
+                   "US Open" = "#2DB8D3"))(4)
+
+# Create a line plot with facets for each Grand Slam tournament
+ggplot(grand_slams_data, aes(x = Year, y = Winner_Rank, group = 1, 
+                             color = Tournament)) +
+  geom_line() +
+  labs(title = "Grand Slams - Winner's Rank Over Years (01/2000 to 01/2024)",
+       x = "Year",
+       y = "Winner's Rank") +
+  theme(legend.position = "top", legend.box = "horizontal",
+        plot.title = element_text(hjust = 0.5)) +
+  facet_wrap(~Tournament, scales = "free_y", ncol = 2) +
+  scale_color_manual(values = custom_colors)
+```
+The plots reveal interesting patterns in Grand Slams. Generally, most winners across all tournaments are found within the top 10 ranks. Specifically, the Australian Open and US Open consistently see winners from within the top 10 ranks, with occasional exceptions where the maximum winner rank reaches around 20.
+
+Wimbledon presents a unique trend. In one particular year, the winner's rank soared to 125, deviating from the anticipated pattern of high-ranked players dominating Grand Slam victories.
+
+Moving to the French Open, we observe instances where lower-ranked players clinched the title. In two cases, the winner's rank reached 45 and 20, challenging the notion that only high-ranked players succeed in winning major tournaments. The convergence of all graphs in recent years suggests a trend where established players are securing titles, potentially making the competition more challenging for new entrants.
+
+### Conclusion ###
+
+In a nutshell, this analysis gives us a closer look at how tennis stars like Federer, Nadal, and Djokovic play the game. Federer stands out for winning on different types of tennis courts, while Nadal dominates on clay, and Djokovic performs consistently across different tournament categories.
+
+Looking at the Grand Slam tournaments, it's interesting to see that most winners are usually top players. However, Wimbledon sometimes surprises us with winners from outside the top ranks. The French Open, on the other hand, has seen lower-ranked players taking the title a couple of times. This tells us that tennis can be both predictable and full of surprises. Recent trends suggest that the competition among top players is getting tougher, making tennis more exciting and unpredictable for fans. As we watch the game evolve, these findings give us insights into what might happen in the future, making tennis a thrilling sport to follow.
