@@ -23,10 +23,6 @@ library(readr)
 library(gridExtra)
 ```
 
-# Part A #
-
-## Problem 1 ##
-
 I have always had a keen interest in tennis and closely followed the sport. Rafael Nadal has been my favorite player for a long time now. I wanted to dive deeper into player comparisons and gain insights about Nadal and other famous players in the world of tennis.
 
 Thus I decided to conduct an analysis using the ATP Tennis dataset spanning the years 2000 to 2024. 
@@ -56,7 +52,7 @@ As shown in the code above the dataset is first imported as a csv file.\
 
 cat("Total missing values = ", sum(is.na(data)))
 
-# Pre processing data
+# Pre-processing data
 data$Player_1 <- trimws(data$Player_1)
 data$Player_2 <- trimws(data$Player_2)
 data$Tournament_Winner <- ifelse(data$Round == "The Final", data$Winner, NA)
@@ -68,9 +64,9 @@ data <- subset(data, select = -c(Pts_1, Pts_2, Odd_1, Odd_2))
 
 ```
 
-Following this data pre processing steps are performed creating a well defined dataset that can be used later for visualizations. For some matches in the dataset the player names for Player_1 and Player_2 were found to contain white spaces at the end. Thus by using the trimming function the white spaces have been removed to achieve consistency in data. Next the column Tournament_Winner has been added which based on whether the match is a 'Final' or not determines the Tournament Winner's name. We find that there are no missing values in the dataset, thus it needs no tidying.\
+Following this data pre-processing steps are performed creating a well-defined dataset that can be used later for visualizations. For some matches in the dataset, the player names for Player_1 and Player_2 were found to contain white spaces at the end. Thus by using the trimming function the white spaces have been removed to achieve consistency in data. Next, the column Tournament_Winner has been added which based on whether the match is a 'Final' or not determines the Tournament Winner's name. We find no missing values in the dataset, thus it needs no tidying.\
 
-Also from the aboves summary we see that some players have a rank of -1 which is not possible, thus we replace the values with NA and these can be omitted later in the analysis stage. Finally the columns not used for analysis are dropped to further optimize the final dataframe.\
+Also from the above summary we see that some players have a rank of -1 which is not possible, thus we replace the values with NA and these can be omitted later in the analysis stage. Finally, the columns not used for analysis are dropped to optimize the final dataframe further.\
 
 ```{r}
 
@@ -83,7 +79,7 @@ str(data)
 
 1. Tournament - Tournament name in which the match is played.
 
-2. Date - Date on which the match was played.
+2. Date - The date on which the match was played.
 
 3. Series - Tournament category. The tournament can belong to one of the following categories -
 
@@ -96,7 +92,7 @@ str(data)
 - Masters 1000
 - Masters Cup
 
-4. Court - The type of the court on which the match was played. Can be either Indoor or Outdoor.
+4. Court - The type of court on which the match was played. Can be either Indoor or Outdoor.
 
 5. Surface - The court surface type on which the match was played. Can have the following values -
 
@@ -121,9 +117,7 @@ str(data)
 
 13. Score - The match score.
 
-14. Tournament_Winner - The player name of winner of the match is set as the column value if it was the final round of the tournament. Or else set to NA.
-
-## Problem 2 ##
+14. Tournament_Winner - The player name of the winner of the match is set as the column value if it was the final round of the tournament. Or else set to NA.
 
 All visualizations are created for the dataset in the date range 01/2000 to 01/2024.
 
